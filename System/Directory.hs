@@ -705,6 +705,9 @@ copyFile fromFPath toFPath =
 -- implication (same file\/dir \<=\> same canonicalizedPath) holds
 -- in either direction: this function can make only a best-effort
 -- attempt.
+--
+-- This function does not fail if the given path does not refer to
+-- an existing file or directory.
 canonicalizePath :: FilePath -> IO FilePath
 canonicalizePath fpath =
 #if defined(mingw32_HOST_OS)
@@ -712,8 +715,13 @@ canonicalizePath fpath =
 #else
   withCString fpath $ \pInPath ->
   allocaBytes long_path_size $ \pOutPath ->
-    do throwErrnoPathIfNull "canonicalizePath" fpath $ c_realpath pInPath pOutPath
-       path <- peekCString pOutPath
+    do p_res <- c_realpath pInPath pOutPath
+       path <- if p_res /= nullPtr
+                then peekCString pOutPath
+                else do errno <- getErrno
+                        if errno == eNOENT
+                         then fmap (</> fpath) getCurrentDirectory
+                         else throwErrnoPath "canonicalizePath" fpath
 #endif
        return (normalise path)
         -- normalise does more stuff, like upper-casing the drive letter
