@@ -112,7 +112,7 @@ import GHC.IO.Exception	( IOException(..), IOErrorType(..), ioException )
 import GHC.IOBase	( IOException(..), IOErrorType(..), ioException )
 #endif
 
-#if MIN_VERSION_base(4,3,2)
+#if __GLASGOW_HASKELL__ > 700
 import GHC.IO.Encoding
 import GHC.Foreign as GHC
 #endif
@@ -715,7 +715,7 @@ canonicalizePath fpath =
 #if defined(mingw32_HOST_OS)
     do path <- Win32.getFullPathName fpath
 #else
-#if __GLASGOW_HASKELL__ && MIN_VERSION_base(4,3,2)
+#if __GLASGOW_HASKELL__ > 700
   GHC.withCString fileSystemEncoding fpath $ \pInPath ->
   allocaBytes long_path_size $ \pOutPath ->
     do throwErrnoPathIfNull "canonicalizePath" fpath $ c_realpath pInPath pOutPath
