@@ -32,9 +32,9 @@ Library {
     extensions: CPP, ForeignFunctionInterface
     if impl(ghc >= 7.1)
         extensions: NondecreasingIndentation
-    build-depends: base >= 4.2 && < 4.5,
-                   old-time >= 1.0 && < 1.1,
-                   filepath >= 1.1 && < 1.3
+    build-depends: base >= 4.2 && < 4.6,
+                   old-time >= 1.0 && < 1.2,
+                   filepath >= 1.1 && < 1.4
     if !impl(nhc98) {
       if os(windows) {
           build-depends: Win32
