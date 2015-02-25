@@ -400,7 +400,7 @@ createDirectoryIfMissing create_parents path0
 #else
               canIgnore <- (Posix.isDirectory `fmap` Posix.getFileStatus dir)
 #endif
-                           `E.catch` ((\ _ -> return (isAlreadyExistsError e))
+                           `catchIOError` ((\ _ -> return (isAlreadyExistsError e))
                                     :: IOException -> IO Bool)
               unless canIgnore (throwIO e)
           | otherwise              -> throwIO e
