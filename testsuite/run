@@ -1,0 +1,35 @@
+#!/bin/sh
+# run all of the tests under the `tests` directory using the GHC test
+# framework; for more info about this framework, see:
+# https://ghc.haskell.org/trac/ghc/wiki/Building/RunningTests
+#
+# arguments received by this script are passed as arguments to the `make`
+# invocation that initiates the tests
+set -e
+
+[ -z "$HSFLAGS" ] || HSFLAGS=\ $HSFLAGS
+HSFLAGS='-package-db ../dist/package.conf.inplace '$HSFLAGS
+HSFLAGS='-optP-include -optP../dist/build/autogen/cabal_macros.h '$HSFLAGS
+export HSFLAGS
+
+# download the GHC repository
+[ -d dist/testsuite/ghc ] || {
+    git clone --depth 1 https://github.com/ghc/ghc dist/testsuite/ghc
+    patch <testsuite/ghc.patch -d dist/testsuite/ghc -N -p 0 -r - || :
+}
+
+# we can't just specify `TOP` as an argument for `make` because it will
+# override `TOP` for *every* included makefile
+sed >dist/testsuite/Makefile \
+    "s|^TOP=.*$|TOP=../dist/testsuite/ghc/testsuite|" \
+    tests/Makefile
+
+# there's no way to pass arguments when `sh` is in `-s` mode, so we have to
+# write the shell commands to an actual file
+cat >dist/testsuite/run.sh <<"EOF"
+cd tests
+make -f ../dist/testsuite/Makefile WAY=normal EXTRA_HC_OPTS="$HSFLAGS" "$@"
+EOF
+
+cabal build
+exec cabal exec sh -- -e dist/testsuite/run.sh "$@"
