@@ -20,7 +20,7 @@ before_install:
 
 install:
  - travis_retry cabal update
- - cabal install --only-dependencies
+ - cabal install --enable-tests --only-dependencies
  - ghc --version
 
 script:
@@ -29,13 +29,5 @@ script:
  - cabal build
  - cabal check
  - cabal sdist
- - cabal test
-# The following scriptlet checks that the resulting source distribution can be built & installed
- - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;
-   cd dist/;
-   if [ -f "$SRC_TGZ" ]; then
-      cabal install --force-reinstalls "$SRC_TGZ";
-   else
-      echo "expected '$SRC_TGZ' not found";
-      exit 1;
-   fi
+ - cabal test --show-details=streaming --test-options=WAY=
+ - cabal install --force-reinstalls --run-tests dist/*-*.tar.gz
