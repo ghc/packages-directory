@@ -16,7 +16,7 @@ def ensure_str(string):
             return string
         if not ensure_str_encoding:
             import locale
-            ensure_str_encoding[0] = locale.getpreferredencoding(False)
+            ensure_str_encoding.append(locale.getpreferredencoding(False))
         return string.decode(ensure_str_encoding[0])
     if isinstance(string, str):
         return string
@@ -69,8 +69,8 @@ def write_file(filename, contents, binary=False):
 
 def find_cabal_fn():
     '''Obtain the filename of the `*.cabal` file.'''
-    fns = [fn for fn in os.listdir()
-           if re.match(r"[\w-]+.cabal", fn) and os.path.isfile(fn)]
+    fns = [fn for fn in os.listdir(".")
+           if re.match(r"[\w-]+.cabal$", fn) and os.path.isfile(fn)]
     if len(fns) < 1:
         raise Exception("can't find .cabal file in current directory")
     elif len(fns) > 1:
@@ -113,7 +113,10 @@ src_patterns = [indent + dir_name + "/*" + ext + "\n"
 # update the .cabal file
 cabal_fn = find_cabal_fn()
 contents = read_file(cabal_fn)
-write_file(cabal_fn,
-           re.sub(r"\n(\s*" + dir_name + "/\S*\n)+",
+contents = re.sub(r"\n(\s*" + dir_name + "/\S*\n)+",
                   "\n" + "".join(src_patterns + srcs),
-                  contents, count=1))
+                  contents, count=1)
+write_file(cabal_fn,
+           contents.encode("utf8"),
+           # don't use Windows line-endings
+           binary=True)
