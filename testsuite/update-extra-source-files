@@ -1,0 +1,119 @@
+#!/usr/bin/env python
+# since cabal is rather picky about wildcards in 'extra-source-files',
+# we have to fill this in ourselves; this script automates that
+import os, re, subprocess
+
+ensure_str_encoding = []
+def ensure_str(string):
+    '''Make sure that the argument is in fact a Unicode string.  If the
+    argument is not, then:
+
+      - on Python 2, it will be decoded using the preferred encoding;
+      - on Python 3, it will cause a `TypeError`.
+    '''
+    if getattr(str, "decode") and getattr(str, "encode"):
+        if isinstance(string, unicode):
+            return string
+        if not ensure_str_encoding:
+            import locale
+            ensure_str_encoding[0] = locale.getpreferredencoding(False)
+        return string.decode(ensure_str_encoding[0])
+    if isinstance(string, str):
+        return string
+    raise TypeError("not an instance of 'str': " + repr(string))
+
+def rename(src_filename, dest_filename):
+    '''Rename a file (allows overwrites on Windows).'''
+    import os
+    if os.name == "nt":
+        import ctypes
+        success = ctypes.windll.kernel32.MoveFileExW(
+            ensure_str(src_filename),
+            ensure_str(dest_filename),
+            ctypes.c_ulong(0x1))
+        if not success:
+            raise ctypes.WinError()
+    else:
+        os.rename(src_filename, dest_filename)
+
+def read_file(filename, binary=False):
+    '''Read the contents of a file.'''
+    with open(filename, "rb" if binary else "rt") as file:
+        return file.read()
+
+def write_file(filename, contents, binary=False):
+    '''Write the contents to a file as atomically as possible.'''
+    from tempfile import NamedTemporaryFile
+    def cleanup():
+        try:
+            os.remove(tmp_filename)
+        except Exception:
+            pass
+    try:
+        with NamedTemporaryFile(
+                mode="wb" if binary else "wt",
+                suffix=".tmp",
+                prefix=os.path.basename(filename) + ".",
+                dir=os.path.dirname(filename),
+                delete=False) as tmp_file:
+            tmp_file.write(contents)
+            tmp_filename = tmp_file.name
+    except:
+        cleanup()
+        raise
+    try:
+        rename(tmp_filename, filename)
+    except OSError:                     # only remove if the rename failed
+        cleanup()
+        raise
+
+def find_cabal_fn():
+    '''Obtain the filename of the `*.cabal` file.'''
+    fns = [fn for fn in os.listdir()
+           if re.match(r"[\w-]+.cabal", fn) and os.path.isfile(fn)]
+    if len(fns) < 1:
+        raise Exception("can't find .cabal file in current directory")
+    elif len(fns) > 1:
+        raise Exception("too many .cabal files in current directory")
+    return fns[0]
+
+def git_tracked_files():
+    '''Obtain the list of file tracked by Git.'''
+    return subprocess.check_output(
+        ["git", "ls-tree", "-r", "--name-only", "HEAD"]
+    ).decode("utf-8").split("\n")
+
+indent = " " * 4
+
+dir_name = "tests"
+
+# extensions that are always included by default
+src_extensions = [
+    ".hs",
+    ".stderr",
+    ".stdout",
+]
+
+# additional source files not covered by 'src_extensions'
+def check_fn(fn):
+    if os.path.basename(fn) == ".gitignore":
+        return
+    if not fn.startswith(dir_name + "/"):
+        return
+    if (os.path.dirname(fn) == dir_name and
+        os.path.splitext(fn)[1] in src_extensions):
+        return
+    return True
+srcs = [indent + fn + "\n" for fn in git_tracked_files() if check_fn(fn)]
+
+# convert the extensions into patterns
+src_patterns = [indent + dir_name + "/*" + ext + "\n"
+                for ext in src_extensions]
+
+# update the .cabal file
+cabal_fn = find_cabal_fn()
+contents = read_file(cabal_fn)
+write_file(cabal_fn,
+           re.sub(r"\n(\s*" + dir_name + "/\S*\n)+",
+                  "\n" + "".join(src_patterns + srcs),
+                  contents, count=1))
