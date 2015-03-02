@@ -24,12 +24,5 @@ sed >dist/testsuite/Makefile \
     "s|^TOP=.*$|TOP=../dist/testsuite/ghc/testsuite|" \
     tests/Makefile
 
-# there's no way to pass arguments when `sh` is in `-s` mode, so we have to
-# write the shell commands to an actual file
-cat >dist/testsuite/run.sh <<"EOF"
 cd tests
 make -f ../dist/testsuite/Makefile WAY=normal EXTRA_HC_OPTS="$HSFLAGS" "$@"
-EOF
-
-cabal build
-exec cabal exec sh -- -e dist/testsuite/run.sh "$@"
