@@ -1532,8 +1532,10 @@ getXdgDirectory xdgDir suffix =
         XdgConfig -> "XDG_CONFIG_HOME"
         XdgCache  -> "XDG_CACHE_HOME"
       case env of
-        Nothing   -> getXdgDirectoryFallback getHomeDirectory xdgDir
-        Just path -> pure path
+        -- N.B. the XDG specification mandates that the path be absolute.
+        -- See issue #100.
+        Just path | isAbsolute path -> pure path
+        _ -> getXdgDirectoryFallback getHomeDirectory xdgDir
 
 -- | Similar to 'getXdgDirectory' but retrieves the entire list of XDG
 -- directories.
